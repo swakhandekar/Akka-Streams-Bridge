@@ -1,12 +1,13 @@
 import java.util.Properties
 
 import org.apache.kafka.common.serialization.Serdes
+import org.apache.kafka.streams.kstream.Printed
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig}
 
 object Bridge extends App {
 
   val consumer = new Consumer()
-  consumer.readSchema()
+  consumer.transformSchemaStream().print(Printed.toSysOut())
 
 
   val config: Properties = {

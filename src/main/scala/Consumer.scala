@@ -1,11 +1,18 @@
 import com.lightbend.kafka.scala.streams.KStreamS
+import org.apache.avro.SchemaNormalization.fingerprint64
 
 class Consumer {
-  def readSchema(): Unit = {
+  private def readSchema(): KStreamS[String, String] = {
     import serde.ConsumerSerde.readPayloadConsumed
     val builder = BuilderFactory.getBuilder()
-    val schemaStream: KStreamS[String, String] = builder.stream[String, String]("ogg-schema")
+    builder.stream[String, String]("ogg-schema")
+  }
 
-    schemaStream.peek((_, value) => println(value))
+  def transformSchemaStream(): KStreamS[Long, String] = {
+    val schemaStream: KStreamS[String, String] = readSchema()
+    schemaStream.map((_, schema) => {
+      val schemaFingerprint = fingerprint64(schema.getBytes)
+      (schemaFingerprint, schema)
+    })
   }
 }
