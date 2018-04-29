@@ -6,8 +6,7 @@ import org.apache.kafka.streams.{KafkaStreams, StreamsConfig}
 object Bridge extends App {
 
   val consumer = new Consumer()
-  consumer.readPayload().peek((key, value) => println(s"${key}: ${value}"))
-
+  consumer.joinSchemaPayload()
 
   val config: Properties = {
     val props = new Properties()
