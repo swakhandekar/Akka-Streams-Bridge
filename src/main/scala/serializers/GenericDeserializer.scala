@@ -1,4 +1,4 @@
-package serde
+package serializers
 
 import java.io.ByteArrayInputStream
 import java.util

@@ -1,13 +1,13 @@
-package serde
+package serializers
 
 import com.lightbend.kafka.scala.streams.DefaultSerdes._
 import models.GenericWrapper
-import org.apache.kafka.common.serialization.Serdes
+import org.apache.kafka.common.serialization.{Serde, Serdes}
 import org.apache.kafka.streams.Consumed
 import org.apache.kafka.streams.kstream.{Joined, Serialized}
 
 object ConsumerSerde {
-  val genericWrapperSerde = Serdes.serdeFrom(
+  val genericWrapperSerde: Serde[GenericWrapper] = Serdes.serdeFrom(
     new GenericSerializer[GenericWrapper](),
     new GenericDeserializer[GenericWrapper]()
   )

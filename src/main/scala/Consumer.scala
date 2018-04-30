@@ -11,7 +11,7 @@ class Consumer {
   private val DELIMITER = '^'
 
   private def readSchema(): KStreamS[String, String] = {
-    import serde.ConsumerSerde.readSchemaConsumed
+    import serializers.ConsumerSerde.readSchemaConsumed
     val builder = BuilderFactory.getBuilder()
     builder.stream[String, String]("ogg-schema")
   }
@@ -28,14 +28,14 @@ class Consumer {
     stream.groupByKey.reduce((_, value2: V) => value2)
   }
 
-  private def readMessage(): KStreamS[String, Array[Byte]] = {
-    import serde.ConsumerSerde.readPayloadConsumed
+  private def readTxMessage(): KStreamS[String, Array[Byte]] = {
+    import serializers.ConsumerSerde.readPayloadConsumed
     val builder = BuilderFactory.getBuilder()
     builder.stream[String, Array[Byte]]("ogg-payload")
   }
 
 
-  private def processPayload(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, GenericWrapper] = {
+  private def processTxMessage(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, GenericWrapper] = {
     messageStream.flatMap((_: String, message: Array[Byte]) => {
       var messages: List[(Long, GenericWrapper)] = List()
       val buffer = ByteBuffer.allocate(1024)
@@ -58,9 +58,9 @@ class Consumer {
   }
 
   def joinSchemaPayload(): Unit = {
-    import serde.ConsumerSerde.{joinSchemaPayloadSerde, _}
+    import serializers.ConsumerSerde.{joinSchemaPayloadSerde, _}
     val schemaTable: KTableS[Long, String] = streamToTable[Long, String](transformSchemaStream())
-    val messageStream: KStreamS[Long, GenericWrapper] = processPayload(readMessage())
+    val messageStream: KStreamS[Long, GenericWrapper] = processTxMessage(readTxMessage())
 
     messageStream.join(
       schemaTable,
