@@ -1,12 +1,20 @@
 package serde
 
 import com.lightbend.kafka.scala.streams.DefaultSerdes._
+import models.GenericWrapper
+import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.Consumed
 import org.apache.kafka.streams.kstream.{Joined, Serialized}
 
 object ConsumerSerde {
-  implicit val readSchemaConsumed = Consumed.`with`(stringSerde, stringSerde)
-  implicit val readPayloadConsumed = Consumed.`with`(stringSerde, stringSerde)
-  implicit val joinSchemaPayloadSerde = Joined.`with`(longSerde, stringSerde, stringSerde)
-  implicit val serializedLongString = Serialized.`with`(longSerde, stringSerde)
+  val genericWrapperSerde = Serdes.serdeFrom(
+    new GenericSerializer[GenericWrapper](),
+    new GenericDeserializer[GenericWrapper]()
+  )
+
+  implicit val readSchemaConsumed: Consumed[String, String] = Consumed.`with`(stringSerde, stringSerde)
+  implicit val readPayloadConsumed: Consumed[String, Array[Byte]] = Consumed.`with`(stringSerde, byteArraySerde)
+  implicit val joinSchemaPayloadSerde: Joined[Long, GenericWrapper, String] = Joined.`with`(longSerde, genericWrapperSerde, stringSerde)
+  implicit val serializedLongString: Serialized[Long, String] = Serialized.`with`(longSerde, stringSerde)
 }
+
