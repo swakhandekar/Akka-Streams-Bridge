@@ -1,8 +1,9 @@
 import java.nio.ByteBuffer
+import java.util.UUID.randomUUID
 
 import com.lightbend.kafka.scala.streams.{KStreamS, KTableS}
 import com.sksamuel.avro4s.AvroInputStream
-import models.GenericWrapper
+import models.{DBChange, GenericWrapper}
 import org.apache.avro.Schema
 import org.apache.avro.SchemaNormalization.parsingFingerprint64
 import org.apache.kafka.streams.kstream.Serialized
@@ -35,9 +36,10 @@ class Consumer {
   }
 
 
-  private def processTxMessage(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, GenericWrapper] = {
+  private def processTxMessage(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, DBChange] = {
     messageStream.flatMap((_: String, message: Array[Byte]) => {
-      var messages: List[(Long, GenericWrapper)] = List()
+      val txId: String = randomUUID().toString
+      var messages: List[(Long, DBChange)] = List()
       val buffer = ByteBuffer.allocate(1024)
 
       message.foreach(byte => {
@@ -46,7 +48,8 @@ class Consumer {
             val input = AvroInputStream.binary[GenericWrapper](buffer.array())
             if (input.iterator.hasNext) {
               val genericWrapper: GenericWrapper = input.iterator.next()
-              messages = (genericWrapper.schema_fingerprint, genericWrapper) :: messages
+              val dbChange = DBChange(txId, genericWrapper.table_name, genericWrapper.payload)
+              messages = (genericWrapper.schema_fingerprint, dbChange) :: messages
             }
             buffer.clear()
           }
@@ -58,13 +61,13 @@ class Consumer {
   }
 
   def joinSchemaPayload(): Unit = {
-    import serializers.ConsumerSerde.{joinSchemaPayloadSerde, _}
+    import serializers.ConsumerSerde.{joinSchemaDBChange, serializedLongString}
     val schemaTable: KTableS[Long, String] = streamToTable[Long, String](transformSchemaStream())
-    val messageStream: KStreamS[Long, GenericWrapper] = processTxMessage(readTxMessage())
+    val messageStream: KStreamS[Long, DBChange] = processTxMessage(readTxMessage())
 
     messageStream.join(
       schemaTable,
-      (genericWrapper: GenericWrapper, schema: String) => s"${genericWrapper.table_name} => ${schema}"
+      (dbChange: DBChange, schema: String) => s"${dbChange.tableName} => ${schema}"
     )
       .peek((fingerprint, value) => println(s"${fingerprint} =>> ${value}"))
   }
