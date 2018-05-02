@@ -1,3 +1,5 @@
+package consumers
+
 import com.lightbend.kafka.scala.streams.StreamsBuilderS
 
 object BuilderFactory {

@@ -1,3 +1,3 @@
 package models
 
-case class DBChange(txId: String, tableName: String, payload: Array[Byte]) {}
+case class DBChange(txId: String, tableName: String, schema: String, payload: Array[Byte]) {}

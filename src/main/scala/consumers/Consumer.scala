@@ -1,12 +1,14 @@
+package consumers
+
 import java.nio.ByteBuffer
 import java.util.UUID.randomUUID
 
-import com.lightbend.kafka.scala.streams.{KStreamS, KTableS}
+import com.lightbend.kafka.scala.streams.{DefaultSerdes, KStreamS, KTableS, TimeWindowedKStreamS}
 import com.sksamuel.avro4s.AvroInputStream
-import models.{DBChange, GenericWrapper}
+import models.{DBChange, Event, GenericWrapper, Message}
 import org.apache.avro.Schema
 import org.apache.avro.SchemaNormalization.parsingFingerprint64
-import org.apache.kafka.streams.kstream.Serialized
+import org.apache.kafka.streams.kstream.{Materialized, Serialized, TimeWindows, Windowed}
 
 class Consumer {
   private val DELIMITER = '^'
@@ -36,23 +38,23 @@ class Consumer {
   }
 
 
-  private def processTxMessage(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, DBChange] = {
+  private def
+  processTxMessage(messageStream: KStreamS[String, Array[Byte]]): KStreamS[Long, Message] = {
     messageStream.flatMap((_: String, message: Array[Byte]) => {
       val txId: String = randomUUID().toString
-      var messages: List[(Long, DBChange)] = List()
+      var messages: List[(Long, Message)] = List()
       val buffer = ByteBuffer.allocate(1024)
 
       message.foreach(byte => {
         byte.toChar match {
-          case DELIMITER => {
+          case DELIMITER =>
             val input = AvroInputStream.binary[GenericWrapper](buffer.array())
             if (input.iterator.hasNext) {
               val genericWrapper: GenericWrapper = input.iterator.next()
-              val dbChange = DBChange(txId, genericWrapper.table_name, genericWrapper.payload)
-              messages = (genericWrapper.schema_fingerprint, dbChange) :: messages
+              val message = Message(txId, genericWrapper.table_name, genericWrapper.payload)
+              messages = (genericWrapper.schema_fingerprint, message) :: messages
             }
             buffer.clear()
-          }
           case _ => buffer.put(byte)
         }
       })
@@ -60,15 +62,31 @@ class Consumer {
     })
   }
 
-  def joinSchemaPayload(): Unit = {
-    import serializers.ConsumerSerde.{joinSchemaDBChange, serializedLongString}
+  private def joinSchemaPayload(): KStreamS[Long, DBChange] = {
+    import serializers.ConsumerSerde.{joinSchemaMessage, serializedLongString}
     val schemaTable: KTableS[Long, String] = streamToTable[Long, String](transformSchemaStream())
-    val messageStream: KStreamS[Long, DBChange] = processTxMessage(readTxMessage())
+    val messageStream: KStreamS[Long, Message] = processTxMessage(readTxMessage())
 
     messageStream.join(
       schemaTable,
-      (dbChange: DBChange, schema: String) => s"${dbChange.tableName} => ${schema}"
+      (message: Message, schema: String) => DBChange(message.txId, message.tableName, schema, message.payload)
     )
-      .peek((fingerprint, value) => println(s"${fingerprint} =>> ${value}"))
+  }
+
+  def groupByTxId(): Unit = {
+    import serializers.ConsumerSerde.serializedStringDBChange
+
+    val joinedStream: TimeWindowedKStreamS[String, DBChange] = joinSchemaPayload()
+      .groupBy((_, dbChange: DBChange) => dbChange.txId)
+      .windowedBy(TimeWindows.of(5000))
+
+    val aggregate: KTableS[Windowed[String], Event] = joinedStream
+      .aggregate(
+        () => Event(),
+        (_: String, dbChange: DBChange, event: Event) => {
+          event.addToList(dbChange)
+        },
+        Materialized.`with`(DefaultSerdes.stringSerde, serializers.ConsumerSerde.eventSerde)
+      )
   }
 }
