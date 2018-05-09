@@ -7,5 +7,6 @@ scalaVersion := "2.12.6"
 libraryDependencies ++= Seq(
   "com.sksamuel.avro4s" %% "avro4s-core" % "1.8.3",
   "org.apache.avro" % "avro" % "1.8.2",
-  "com.lightbend" %% "kafka-streams-scala" % "0.2.1"
+  "com.lightbend" %% "kafka-streams-scala" % "0.2.1",
+  "com.typesafe.akka" %% "akka-stream-kafka" % "0.20"
 )
