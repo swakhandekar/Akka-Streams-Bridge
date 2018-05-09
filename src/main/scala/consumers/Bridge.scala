@@ -2,6 +2,7 @@ package consumers
 
 import java.util.Properties
 
+import akka.actor.ActorSystem
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig}
 
@@ -11,18 +12,25 @@ import scala.collection.mutable
 object Bridge extends App {
   val schemaMap: mutable.Map[Long, String] = TrieMap()
 
-  def startSchemaConsumer(): Unit ={
-    val schemaConsumer = new AkkaStreamConsumer(
+  val bootStrapServer = "localhost:9092"
+  val groupId = "student-app-id"
+
+  def startSchemaConsumer(): Unit = {
+    val schemaConsumer = new AkkaSchemaConsumer(
       "ogg-schema",
-      "localhost:9092",
-      "student-app-id",
+      bootStrapServer,
+      groupId,
       schemaMap
     )
     schemaConsumer.start()
   }
 
   def startMessageConsumer(): Unit = {
-    val messageConsumer = new MessageConsumer(schemaMap)
+    implicit val system: ActorSystem = ActorSystem()
+    val messageConsumer = new AkkaMessageConsumer("ogg-payload",
+      bootStrapServer,
+      groupId,
+      schemaMap)
     messageConsumer.start()
   }
 

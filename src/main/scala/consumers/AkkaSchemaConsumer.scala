@@ -16,7 +16,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class AkkaStreamConsumer(private val topic: String,
+class AkkaSchemaConsumer(private val topic: String,
                          private val bootstrapServer: String,
                          private val groupId: String,
                          private val sink: mutable.Map[Long, String]) {
