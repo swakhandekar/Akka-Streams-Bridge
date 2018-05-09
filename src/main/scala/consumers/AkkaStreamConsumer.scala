@@ -8,15 +8,18 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscription, Subscriptions}
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.Sink
+import org.apache.avro.{Schema, SchemaNormalization}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 
+import scala.collection.mutable
 import scala.concurrent.Future
 
 class AkkaStreamConsumer(private val topic: String,
                          private val bootstrapServer: String,
-                         private val groupId: String) {
+                         private val groupId: String,
+                         private val sink: mutable.Map[Long, String]) {
 
   private implicit val system: ActorSystem = ActorSystem()
 
@@ -43,7 +46,10 @@ class AkkaStreamConsumer(private val topic: String,
   }
 
   private def consumeSchema(record: ConsumerRecord[String, String]): Future[Done] ={
-    println(record.value())
+    val rawSchema = record.value()
+    val schema =  new Schema.Parser().parse(rawSchema)
+    val fingerprint = SchemaNormalization.parsingFingerprint64(schema)
+    sink.put(fingerprint, rawSchema)
     offset.set(record.offset)
     Future.successful(Done)
   }

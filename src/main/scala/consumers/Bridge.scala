@@ -5,12 +5,28 @@ import java.util.Properties
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig}
 
+import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
+
 object Bridge extends App {
-  val consumer = new Consumer()
-  consumer.groupByTxId()
+  val schemaMap: mutable.Map[Long, String] = TrieMap()
 
+  def startSchemaConsumer(): Unit ={
+    val schemaConsumer = new AkkaStreamConsumer(
+      "ogg-schema",
+      "localhost:9092",
+      "student-app-id",
+      schemaMap
+    )
+    schemaConsumer.start()
+  }
 
-  val config: Properties = {
+  def startMessageConsumer(): Unit = {
+    val messageConsumer = new MessageConsumer(schemaMap)
+    messageConsumer.start()
+  }
+
+  val consumerConfig: Properties = {
     val props = new Properties()
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, s"StudentAdmission")
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092")
@@ -19,7 +35,9 @@ object Bridge extends App {
     props
   }
 
+  startSchemaConsumer()
+  startMessageConsumer()
   private val builder = BuilderFactory.getBuilder()
-  val streams: KafkaStreams = new KafkaStreams(builder.build(), config)
+  val streams: KafkaStreams = new KafkaStreams(builder.build(), consumerConfig)
   streams.start()
 }
