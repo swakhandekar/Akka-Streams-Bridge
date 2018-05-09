@@ -11,6 +11,8 @@ object Bridge extends App {
   val bootStrapServer = "localhost:9092"
   val groupId = "student-app-id"
 
+  implicit val system: ActorSystem = ActorSystem()
+
   def startSchemaConsumer(): Unit = {
     val schemaConsumer = new AkkaSchemaConsumer(
       "ogg-schema",
@@ -22,11 +24,12 @@ object Bridge extends App {
   }
 
   def startMessageConsumer(): Unit = {
-    implicit val system: ActorSystem = ActorSystem()
-    val messageConsumer = new AkkaMessageConsumer("ogg-payload",
+    val messageConsumer = new AkkaMessageConsumer(
+      "ogg-payload",
       bootStrapServer,
       groupId,
-      schemaMap)
+      schemaMap
+    )
     messageConsumer.start()
   }
 

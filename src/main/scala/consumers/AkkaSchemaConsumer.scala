@@ -19,9 +19,7 @@ import scala.concurrent.Future
 class AkkaSchemaConsumer(private val topic: String,
                          private val bootstrapServer: String,
                          private val groupId: String,
-                         private val sink: mutable.Map[Long, String]) {
-
-  private implicit val system: ActorSystem = ActorSystem()
+                         private val sink: mutable.Map[Long, String])(implicit val system: ActorSystem) {
 
   private val consumerSettings: ConsumerSettings[String, String] =
     ConsumerSettings(system, new StringDeserializer, new StringDeserializer)
