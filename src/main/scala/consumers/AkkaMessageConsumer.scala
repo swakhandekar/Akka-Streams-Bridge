@@ -8,7 +8,7 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Sink
 import akka.stream.{ActorMaterializer, Materializer}
-import com.sksamuel.avro4s.AvroInputStream
+import com.sksamuel.avro4s.{AvroBinaryInputStream, AvroInputStream}
 import models.{DBChange, Event, GenericWrapper}
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
@@ -67,22 +67,16 @@ class AkkaMessageConsumer(private val topic: String,
   private def consumeMessage(record: ConsumerRecord[String, Array[Byte]]): Future[Done] = {
     val messageBytes = record.value()
     var dbChanges: mutable.MutableList[DBChange] = mutable.MutableList()
-    val buffer = ByteBuffer.allocate(1024)
 
-    messageBytes.foreach(byte => {
-      byte.toChar match {
-        case DELIMITER =>
-          val input = AvroInputStream.binary[GenericWrapper](buffer.array())
-          if (input.iterator.hasNext) {
-            val genericWrapper: GenericWrapper = input.iterator.next()
-            val schemaFingerprint = genericWrapper.schema_fingerprint
-            val schema = getSchemaSafe(schemaFingerprint)
-            dbChanges += DBChange(genericWrapper.table_name, schema, genericWrapper.payload)
-          }
-          buffer.clear()
-        case _ => buffer.put(byte)
-      }
-    })
+    val input: AvroBinaryInputStream[GenericWrapper] = AvroInputStream.binary[GenericWrapper](messageBytes)
+
+    while(input.iterator.hasNext) {
+      val genericWrapper: GenericWrapper = input.iterator.next()
+      println(genericWrapper)
+      val schemaFingerprint = genericWrapper.schema_fingerprint
+      val schema = getSchemaSafe(schemaFingerprint)
+      dbChanges += DBChange(genericWrapper.table_name, schema, genericWrapper.payload)
+    }
 
     val event = Event(dbChanges.toList)
     println(event)
