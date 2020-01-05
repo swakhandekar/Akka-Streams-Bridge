@@ -70,13 +70,11 @@ class AkkaMessageConsumer(private val topic: String,
 
     val input: AvroBinaryInputStream[GenericWrapper] = AvroInputStream.binary[GenericWrapper](messageBytes)
 
-    while(input.iterator.hasNext) {
-      val genericWrapper: GenericWrapper = input.iterator.next()
-      println(genericWrapper)
+    input.iterator.toList.foreach(genericWrapper =>  {
       val schemaFingerprint = genericWrapper.schema_fingerprint
       val schema = getSchemaSafe(schemaFingerprint)
       dbChanges += DBChange(genericWrapper.table_name, schema, genericWrapper.payload)
-    }
+    })
 
     val event = Event(dbChanges.toList)
     println(event)
